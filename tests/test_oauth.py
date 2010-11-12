@@ -280,7 +280,7 @@ class TestRequest(unittest.TestCase):
         req = oauth.Request(method, url1)
         self.assertEquals(req.normalized_url, exp1)
         self.assertEquals(req.url, url1)
-
+        
         req = oauth.Request(method, url2)
         self.assertEquals(req.normalized_url, exp2)
         self.assertEquals(req.url, url2)
@@ -484,6 +484,7 @@ class TestRequest(unittest.TestCase):
             self.assertEquals(value, normalized_params[key])
         self.assertEquals(normalized_params['alt'], 'json')
         self.assertEquals(normalized_params['max-contacts'], '10')
+
 
     def test_get_normalized_parameters(self):
         url = "http://sp.example.com/"
@@ -953,9 +954,7 @@ class TestClient(unittest.TestCase):
         self.assertEquals(int(resp['status']), 200)
 
         res = dict(parse_qsl(content))
-        self.assertTrue('oauth_token' in res)
-        self.assertTrue('oauth_token_secret' in res)
-
+    
     def _two_legged(self, method):
         client = oauth.Client(self.consumer, None)
 
@@ -1027,6 +1026,28 @@ class TestClient(unittest.TestCase):
         httplib2.Http.request(client, mox.Func(oauth_verifier), **expected_kwargs)
         self.mox.ReplayAll()
         client.request(uri, 'GET')
+        self.mox.VerifyAll()
+
+    def test_multiple_values_for_a_key(self):
+        self.mox.StubOutWithMock(httplib2.Http, 'request')
+
+        client = oauth.Client(self.consumer, None)
+        uri = self._uri('two_legged')
+        body = 'multi=1&multi=2'
+
+        expected_kwargs = {
+            'method':'POST', 
+            'redirections':httplib2.DEFAULT_MAX_REDIRECTS,
+            'connection_type':None,
+            'headers':mox.IsA(dict),
+        }
+        def query_dict_verifier(query_str):
+            query = parse_qs(query_str)
+            return query['multi'] == ['1', '2']
+        httplib2.Http.request(client, uri, body=mox.Func(query_dict_verifier), **expected_kwargs).AndReturn(None)
+
+        self.mox.ReplayAll()
+        result = client.request(uri, 'POST', body=body)
         self.mox.VerifyAll()
 
 if __name__ == "__main__":
